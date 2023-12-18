@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <title>"Sending and Hashing Random Data Using the Fetch API to a GoLang Backend"</title>
+        <script>
+            // Function for generating random data
+            var clientHash = "";
+
+            function generateRandomData(totalSize) {
+                const maxBlockSize = 65536; // Maximum block size for crypto.getRandomValues
+                let generatedData = [];
+
+                while (totalSize > 0) {
+                    const currentBlockSize = Math.min(totalSize, maxBlockSize);
+                    const randomBytes = new Uint8Array(currentBlockSize);
+                    window.crypto.getRandomValues(randomBytes);
+                    generatedData.push(randomBytes);
+                    totalSize -= currentBlockSize;
+                }
+
+                return new Blob(generatedData);
+            }
+
+            // Function for computing SHA-256
+            async function sha256(data) {
+                const buffer = await data.arrayBuffer();
+                const hashBuffer = await crypto.subtle.digest("SHA-256", buffer);
+                const hashArray = Array.from(new Uint8Array(hashBuffer));
+                const hashHex = hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+                return hashHex;
+            }
+
+            // Function for sending data
+            function sendData(binaryData) {
+                fetch("/post", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/octet-stream",
+                    },
+                    body: binaryData,
+                })
+                    .then((response) => response.text())
+                    .then((serverHash) => {
+                        console.log("serverHash:", serverHash);
+                        if (serverHash === clientHash) {
+                            console.log("%cCorrect", "color: green;");
+                            document.getElementById("hashDisplay").style.color = "green";
+                        } else {
+                            document.getElementById("hashDisplay").style.color = "red";
+                            console.log("%cNot Correct", "color: red;");
+                        }
+                    })
+                    .catch((error) => console.error("Error:", error));
+            }
+
+            // Button click handler
+            async function handleButtonClick() {
+                // Generating random data
+                const binaryData = generateRandomData(10000000);
+
+                // Calculating SHA-256
+                const hash = await sha256(binaryData);
+                clientHash = hash;
+                console.log("clientHash:", hash);
+
+                // Displaying the hash on the page
+                document.getElementById("hashDisplay").style.color = "black";
+
+                document.getElementById("hashDisplay").textContent = "SHA-256: " + hash;
+
+                // Sending data
+                sendData(binaryData);
+            }
+        </script>
+    </head>
+    <body>
+        <button onclick="handleButtonClick()">Send Random Data</button>
+        <p id="hashDisplay"></p>
+    </body>
+</html>
